@@ -12,7 +12,12 @@ import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { submitReport, geocodePincode } from "@/lib/api";
+import {
+    submitReport,
+    geocodePincode,
+    analyzeMedicineImage,
+    type MedicineImageAnalysis,
+} from "@/lib/api";
 import { preprocessMedicineImage } from "@/lib/imageEnhancer";
 import LazyImage from "@/components/LazyImage";
 import { LiveMessage } from "@/components/ui/LiveMessage";
@@ -93,7 +98,45 @@ interface ImageEntry {
     preview: string; // blob URL of the original user file
     cloudUrl: string; // Cloudinary secure_url from enhanced file
     name: string;
+    analysis?: MedicineImageAnalysis | UnavailableImageAnalysis;
 }
+
+interface UnavailableImageAnalysis {
+    isFake: false;
+    confidence: 0;
+    verdict: "unavailable";
+    details: string;
+}
+
+type ImageAnalysisState = ImageEntry["analysis"];
+
+const analysisText: Record<NonNullable<ImageAnalysisState>["verdict"], string> = {
+    likely_genuine: "Likely genuine",
+    suspicious: "Suspicious",
+    likely_fake: "Likely fake",
+    unavailable: "Analysis unavailable",
+};
+
+const analysisTone: Record<NonNullable<ImageAnalysisState>["verdict"], string> = {
+    likely_genuine:
+        "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300",
+    suspicious:
+        "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300",
+    likely_fake:
+        "border-red-200 bg-red-50 text-red-700 dark:border-red-950 dark:bg-red-950/20 dark:text-red-300",
+    unavailable:
+        "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300",
+};
+
+const unavailableAnalysis = (error: unknown): UnavailableImageAnalysis => ({
+    isFake: false,
+    confidence: 0,
+    verdict: "unavailable",
+    details:
+        error instanceof Error
+            ? error.message
+            : "Image analysis could not be completed. Your report can still be submitted.",
+});
 
 // ─── Animation variants ────────────────────────────────────────────────────────
 const PAGE: Variants = {
@@ -227,7 +270,7 @@ function FieldError({ messageId, msg }: { messageId: string; msg?: string }) {
 // ─── Label ─────────────────────────────────────────────────────────────────────
 function FL({ children, req }: { children: React.ReactNode; req?: boolean }) {
     return (
-        <label className="mb-2 block text-sm font-bold text-slate-700">
+        <label className="mb-2 block text-sm font-bold text-(--color-text-primary)">
             {children}
             {req && <span className="ml-1.5 text-emerald-500">*</span>}
         </label>
@@ -236,10 +279,10 @@ function FL({ children, req }: { children: React.ReactNode; req?: boolean }) {
 
 // ─── Base input classes ────────────────────────────────────────────────────────
 const inp = (err?: boolean) =>
-    `w-full bg-slate-50 border rounded-xl px-4 py-3 text-slate-800 font-medium
-   placeholder-slate-400 outline-none transition-all duration-200
-   focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500
-   ${err ? "border-red-300 focus:border-red-400 focus:ring-red-500/10" : "border-slate-200 hover:border-slate-300"}`;
+    `w-full bg-(--color-surface-muted) border border-(--color-border-muted) rounded-xl px-4 py-3 text-(--color-text-primary) font-medium
+   placeholder-(--color-text-muted) outline-none transition-all duration-200
+   focus:bg-(--color-surface-page) focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500
+   ${err ? "border-red-300 focus:border-red-400 focus:ring-red-500/10" : "hover:border-slate-350 dark:hover:border-slate-600"}`;
 
 // ─── Step progress bar ─────────────────────────────────────────────────────────
 function Progress({ current }: { current: number }) {
@@ -247,7 +290,7 @@ function Progress({ current }: { current: number }) {
     return (
         <div className="mb-8">
             {/* Bar */}
-            <div className="relative mb-6 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className="relative mb-6 h-1.5 overflow-hidden rounded-full bg-(--color-surface-muted)">
                 <motion.div
                     className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
                     initial={false}
@@ -266,10 +309,10 @@ function Progress({ current }: { current: number }) {
                             key={s.n}
                             className={`flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-xs font-bold transition-all duration-200 select-none ${
                                 done
-                                    ? "border-emerald-100 bg-emerald-50 text-emerald-600"
+                                    ? "border-emerald-100 bg-emerald-50 text-emerald-600 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400"
                                     : active
-                                      ? "border-slate-900 bg-slate-900 text-white"
-                                      : "border-slate-200 bg-white text-slate-400"
+                                      ? "border-(--color-text-primary) bg-(--color-text-primary) text-(--color-surface-page)"
+                                      : "border-(--color-border-muted) bg-(--color-surface-page) text-(--color-text-muted)"
                             }`}
                         >
                             {done ? (
@@ -280,7 +323,11 @@ function Progress({ current }: { current: number }) {
                             ) : (
                                 <>
                                     <span
-                                        className={active ? "text-emerald-400" : "text-slate-300"}
+                                        className={
+                                            active
+                                                ? "text-emerald-400"
+                                                : "text-(--color-text-muted)"
+                                        }
                                     >
                                         {s.n}
                                     </span>
@@ -291,7 +338,7 @@ function Progress({ current }: { current: number }) {
                     );
                 })}
                 {/* Step label */}
-                <span className="ml-auto self-center text-xs font-semibold whitespace-nowrap text-slate-500">
+                <span className="ml-auto self-center text-xs font-semibold whitespace-nowrap text-(--color-text-secondary)">
                     {current}/{STEPS.length} — {STEPS[current - 1].title}
                 </span>
             </div>
@@ -432,11 +479,16 @@ function Step2({
                             );
                         }
 
+                        const cloudUrl = await uploadOne(fileToProcess);
+                        const analysis =
+                            await analyzeMedicineImage(cloudUrl).catch(unavailableAnalysis);
+
                         return {
                             // UX optimization: Generate preview from original file to maintain visual comfort
                             preview: URL.createObjectURL(f),
-                            cloudUrl: await uploadOne(fileToProcess),
+                            cloudUrl,
                             name: f.name,
+                            analysis,
                         };
                     })
                 );
@@ -453,7 +505,6 @@ function Step2({
                 setBusy(false);
                 if (ref.current) ref.current.value = "";
             }
-            // eslint-disable-next-line react-hooks/exhaustive-deps
         },
         [images, setImages, setValue]
     );
@@ -484,7 +535,7 @@ function Step2({
                     setDrag(false);
                     processFiles(Array.from(e.dataTransfer.files));
                 }}
-                className={`relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all duration-200 ${drag ? "scale-[1.01] border-emerald-500 bg-emerald-50" : "border-slate-200 bg-slate-50/50 hover:border-emerald-300"} ${busy ? "cursor-wait" : "cursor-pointer"}`}
+                className={`relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all duration-200 ${drag ? "scale-[1.01] border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" : "border-(--color-border-muted) bg-(--color-surface-muted)/50 hover:border-emerald-500"} ${busy ? "cursor-wait" : "cursor-pointer"}`}
             >
                 <input
                     ref={ref}
@@ -501,23 +552,23 @@ function Step2({
                 {busy ? (
                     <>
                         <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-slate-200 border-t-emerald-500" />
-                        <p className="text-sm font-semibold text-slate-500">
+                        <p className="text-sm font-semibold text-(--color-text-secondary)">
                             Uploading to secure storage…
                         </p>
                     </>
                 ) : (
                     <>
-                        <span className="mb-1 rounded-xl border border-slate-100 bg-white p-3 text-slate-400 shadow-sm">
+                        <span className="mb-1 rounded-xl border border-(--color-border-muted) bg-(--color-surface-page) p-3 text-(--color-text-muted) shadow-sm">
                             <Icon.Upload />
                         </span>
                         <div>
-                            <p className="text-base font-bold text-slate-700">
+                            <p className="text-base font-bold text-(--color-text-primary)">
                                 Drop images or{" "}
                                 <span className="text-emerald-600 underline underline-offset-2">
                                     select files
                                 </span>
                             </p>
-                            <p className="mt-1 text-sm font-medium text-slate-500">
+                            <p className="mt-1 text-sm font-medium text-(--color-text-secondary)">
                                 JPG · PNG · WEBP &nbsp;·&nbsp; Multiple files OK
                             </p>
                         </div>
@@ -536,7 +587,7 @@ function Step2({
                         <LiveMessage
                             tone="critical"
                             id={uploadErrorId}
-                            className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+                            className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:border-red-950 dark:bg-red-950/20 dark:text-red-400"
                         >
                             <span className="mt-0.5">
                                 <Icon.Alert />
@@ -561,7 +612,7 @@ function Step2({
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.88 }}
                                 transition={{ duration: 0.18 }}
-                                className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm"
+                                className="group relative aspect-square overflow-hidden rounded-xl border border-(--color-border-muted) bg-(--color-surface-muted) shadow-sm"
                             >
                                 <LazyImage
                                     src={img.preview}
@@ -589,14 +640,46 @@ function Step2({
                                         {img.name}
                                     </p>
                                 </div>
+                                {img.analysis && (
+                                    <span
+                                        className={`absolute top-2 left-2 rounded-full border px-2 py-1 text-[10px] font-bold shadow-sm ${analysisTone[img.analysis.verdict]}`}
+                                    >
+                                        {analysisText[img.analysis.verdict]}
+                                    </span>
+                                )}
                             </motion.div>
                         ))}
                     </AnimatePresence>
                 </div>
             )}
 
+            {images.some((img) => img.analysis) && (
+                <div className="space-y-2">
+                    {images.map((img) =>
+                        img.analysis ? (
+                            <div
+                                key={`${img.cloudUrl}-analysis`}
+                                className={`rounded-xl border px-4 py-3 text-sm font-medium ${analysisTone[img.analysis.verdict]}`}
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span>{analysisText[img.analysis.verdict]}</span>
+                                    {img.analysis.verdict !== "unavailable" && (
+                                        <span>
+                                            {Math.round(img.analysis.confidence * 100)}% confidence
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-xs leading-relaxed">
+                                    {img.analysis.details}
+                                </p>
+                            </div>
+                        ) : null
+                    )}
+                </div>
+            )}
+
             {images.length === 0 && !busy && (
-                <p className="text-center text-sm font-medium text-slate-400">
+                <p className="text-center text-sm font-medium text-(--color-text-muted)">
                     Minimum 1 image required
                 </p>
             )}
@@ -719,21 +802,21 @@ function Success({ onReset, reportId }: { onReset: () => void; reportId: string 
             </motion.div>
 
             <div className="space-y-2">
-                <h3 className="text-2xl font-extrabold tracking-tight text-slate-800">
+                <h3 className="text-2xl font-extrabold tracking-tight text-(--color-text-primary)">
                     Report Submitted
                 </h3>
-                <p className="mx-auto max-w-sm text-base leading-relaxed font-medium text-slate-500">
+                <p className="mx-auto max-w-sm text-base leading-relaxed font-medium text-(--color-text-secondary)">
                     Your report has been securely received and will be reviewed by our
                     pharmacovigilance team within 48 hours.
                 </p>
             </div>
 
             {/* Reference */}
-            <div className="mx-auto w-full max-w-xs rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 shadow-sm">
-                <p className="mb-1 text-xs font-bold tracking-wider text-slate-500 uppercase">
+            <div className="mx-auto w-full max-w-xs rounded-2xl border border-(--color-border-muted) bg-(--color-surface-muted) px-6 py-4 shadow-sm">
+                <p className="mb-1 text-xs font-bold tracking-wider text-(--color-text-muted) uppercase">
                     Reference ID
                 </p>
-                <p className="text-lg font-bold tracking-wide text-slate-800">{ref}</p>
+                <p className="text-lg font-bold tracking-wide text-(--color-text-primary)">{ref}</p>
             </div>
 
             <button
@@ -765,7 +848,6 @@ export default function ReportWizard() {
         return () => {
             images.forEach((i) => URL.revokeObjectURL(i.preview));
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const methods = useForm<FormValues>({
@@ -827,7 +909,7 @@ export default function ReportWizard() {
             {/* Semantic form wrapper — enables Enter-to-submit and screen reader identification */}
             <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 {/* Card */}
-                <div className="mx-auto flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl shadow-slate-200/50">
+                <div className="mx-auto flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-(--color-border-muted) bg-(--color-surface-page) font-sans shadow-xl dark:shadow-none">
                     {/* ── Header band ── */}
                     <div className="relative overflow-hidden bg-slate-900 px-8 pt-8 pb-7">
                         {/* Decorative blur */}
@@ -855,7 +937,7 @@ export default function ReportWizard() {
                     </div>
 
                     {/* ── Body ── */}
-                    <div className="flex-1 bg-white px-8 py-8">
+                    <div className="flex-1 bg-(--color-surface-page) px-8 py-8">
                         {done ? (
                             <Success onReset={handleReset} reportId={reportId} />
                         ) : (
@@ -906,20 +988,20 @@ export default function ReportWizard() {
                                 </AnimatePresence>
 
                                 {/* ── Nav buttons ── */}
-                                <div className="mt-10 flex items-center justify-between border-t border-slate-100 pt-6">
+                                <div className="mt-10 flex items-center justify-between border-t border-(--color-border-muted) pt-6">
                                     {/* Back */}
                                     <button
                                         type="button"
                                         onClick={back}
                                         disabled={step === 1 || submitting}
-                                        className="flex items-center gap-2 rounded-xl border border-transparent px-5 py-2.5 text-sm font-bold text-slate-500 transition-all duration-200 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-800 active:scale-95 disabled:pointer-events-none disabled:opacity-0"
+                                        className="flex items-center gap-2 rounded-xl border border-transparent px-5 py-2.5 text-sm font-bold text-(--color-text-secondary) transition-all duration-200 hover:border-(--color-border-muted) hover:bg-(--color-surface-muted) hover:text-(--color-text-primary) active:scale-95 disabled:pointer-events-none disabled:opacity-0"
                                     >
                                         <Icon.Arrow left />
                                         Back
                                     </button>
 
                                     {/* Mobile count */}
-                                    <span className="text-xs font-bold text-slate-400 sm:hidden">
+                                    <span className="text-xs font-bold text-(--color-text-muted) sm:hidden">
                                         {step}/{STEPS.length}
                                     </span>
 
@@ -929,7 +1011,7 @@ export default function ReportWizard() {
                                             type="button"
                                             onClick={next}
                                             disabled={submitting}
-                                            className="flex items-center gap-2 rounded-xl bg-slate-900 px-7 py-3 text-sm font-bold text-white shadow-md shadow-slate-900/10 transition-all duration-200 hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="flex items-center gap-2 rounded-xl bg-slate-900 px-7 py-3 text-sm font-bold text-white shadow-md shadow-slate-900/10 transition-all duration-200 hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:shadow-none dark:hover:bg-slate-200"
                                         >
                                             Continue <Icon.Arrow />
                                         </button>

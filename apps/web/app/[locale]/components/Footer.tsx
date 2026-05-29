@@ -1,8 +1,8 @@
+"use client";
+
 import { FaGithub, FaLinkedin, FaXTwitter } from "react-icons/fa6";
 import { GitBranch, Sparkles, Heart } from "lucide-react";
 import { Link } from "@/i18n/routing";
-import { ThemeToggle } from "./ThemeToggle"; // <-- ADD THIS IMPORT
-
 export default function Footer() {
     return (
         <footer className="no-print mt-auto border-t border-slate-800 bg-slate-950 text-slate-400">
@@ -85,7 +85,7 @@ export default function Footer() {
                                 href="https://github.com/RatLoopz/sahidawa-india"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="rounded-lg border border-slate-800 bg-slate-900 p-2 transition-all duration-300 hover:border-slate-600 hover:text-white"
+                                className="rounded-lg border border-slate-800 bg-slate-900 p-2 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-600 hover:text-white hover:shadow-[0_4px_12px_rgba(255,255,255,0.1)] active:scale-95"
                             >
                                 <FaGithub size={18} />
                             </a>
@@ -94,7 +94,7 @@ export default function Footer() {
                                 href="https://linkedin.com/"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="rounded-lg border border-slate-800 bg-slate-900 p-2 transition-all duration-300 hover:border-slate-600 hover:text-white"
+                                className="rounded-lg border border-slate-800 bg-slate-900 p-2 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-500 hover:text-blue-400 hover:shadow-[0_4px_12px_rgba(37,99,235,0.2)] active:scale-95"
                             >
                                 <FaLinkedin size={18} />
                             </a>
@@ -103,7 +103,7 @@ export default function Footer() {
                                 href="https://twitter.com/"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="rounded-lg border border-slate-800 bg-slate-900 p-2 transition-all duration-300 hover:border-slate-600 hover:text-white"
+                                className="rounded-lg border border-slate-800 bg-slate-900 p-2 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-500 hover:text-white hover:shadow-[0_4px_12px_rgba(255,255,255,0.1)] active:scale-95"
                             >
                                 <FaXTwitter size={18} />
                             </a>
@@ -114,13 +114,14 @@ export default function Footer() {
                 {/* Bottom Footer */}
                 <div className="flex flex-col items-center justify-between gap-4 pt-6 text-xs text-slate-500 md:flex-row">
                     <div className="flex items-center gap-4">
-                        <p>© 2026 SahiDawa. Open Source under MIT License.</p>
-                        {/* THEME TOGGLE ADDED HERE */}
-                        <ThemeToggle />
+                        <p className="text-xs md:text-sm">
+                            © 2026 SahiDawa. Open Source under MIT License.
+                        </p>
                     </div>
 
-                    <p className="text-center md:text-right">
-                        Built with <Heart className="inline h-3 w-3 text-red-500" /> for the open-source community.
+                    <p className="text-center text-xs md:text-right md:text-sm">
+                        Built with <Heart className="inline h-[1em] w-[1em] text-red-500" /> for the
+                        open-source community.
                     </p>
                 </div>
             </div>
