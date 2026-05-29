@@ -148,24 +148,41 @@ def test_batch_success_returns_summary_without_failed_rows_csv(tmp_path):
     assert len(client.upsert_calls) == 1
 
 
-# ── Tests for merge_commercial_mrp ────────────────────────────────────────────
+# ── Tests for merge_jan_aushadhi_price ───────────────────────────────────────
+
+
+def _write_nppa_csv(path, rows):
+    """Helper: write a minimal NPPA CSV to a temp file for testing."""
+    import csv
+    path.mkdir(parents=True, exist_ok=True)
+    csv_path = path / "nppa_ceiling_prices.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["generic_name", "strength", "mrp"])
+        writer.writeheader()
+        writer.writerows(rows)
+    return csv_path
+
 
 class MergeFakeTable(FakeTable):
-    """FakeTable extended with .is_() and .range() for merge tests."""
+    """FakeTable extended with .is_(), .gt(), and .order() for merge tests."""
 
     def __init__(self, name, client):
         super().__init__(name, client)
         self._is_filters = []
-        self._range_start = None
-        self._range_end = None
+        self._gt_filters = []
 
     def is_(self, column, value):
         self._is_filters.append((column, value))
         return self
 
+    def gt(self, column, value):
+        self._gt_filters.append((column, value))
+        return self
+
+    def order(self, column):
+        return self
+
     def range(self, start, end):
-        self._range_start = start
-        self._range_end = end
         return self
 
     def execute(self):
@@ -179,9 +196,8 @@ class MergeFakeTable(FakeTable):
                 if val == "null":
                     rows = [r for r in rows if r.get(col) is None]
 
-            if self._range_start is not None and self._range_end is not None:
-                page_size = self._range_end - self._range_start + 1
-                rows = rows[self._range_start: self._range_start + page_size]
+            for col, val in self._gt_filters:
+                rows = [r for r in rows if (r.get(col) or "") > val]
 
             return FakeExecuteResponse(rows)
 
@@ -189,7 +205,7 @@ class MergeFakeTable(FakeTable):
 
 
 class MergeFakeSupabaseClient:
-    """Minimal Supabase fake for merge_commercial_mrp tests."""
+    """Minimal Supabase fake for merge_jan_aushadhi_price tests."""
 
     def __init__(self, medicines=None):
         self.medicines = medicines or []
@@ -203,13 +219,10 @@ class MergeFakeSupabaseClient:
             if t.operation == "update":
                 row_id = next((v for c, v in t.eq_filters if c == "id"), None)
                 self.update_calls.append((name, t.pending_update, t.eq_filters))
-
                 for med in self.medicines:
                     if med.get("id") == row_id:
                         med.update(t.pending_update)
-
                 return FakeExecuteResponse()
-
             return original_execute()
 
         t.execute = patched_execute
@@ -220,72 +233,106 @@ def make_merge_loader(client, tmp_path):
     loader = SupabaseLoader.__new__(SupabaseLoader)
     loader.client = client
     loader.failed_rows_dir = tmp_path
-    loader.pipeline_name = "commercial_mrp"
+    loader.pipeline_name = "ja_backfill"
     return loader
 
 
-def test_merge_updates_all_null_mrp_rows_beyond_old_limit(tmp_path):
+def test_ja_backfill_updates_null_jan_aushadhi_price_rows(tmp_path):
+    """Basic case: rows with jan_aushadhi_price=None get backfilled from NPPA CSV."""
     medicines = [
-        {"id": f"med-{i}", "generic_name": "Paracetamol", "strength": "500mg", "mrp": None}
-        for i in range(10)
+        {"id": "m1", "generic_name": "Paracetamol", "strength": "500mg",
+         "source": "commercial", "jan_aushadhi_price": None},
+        {"id": "m2", "generic_name": "Cetirizine", "strength": "10mg",
+         "source": "commercial", "jan_aushadhi_price": None},
     ]
-
+    nppa_csv = _write_nppa_csv(tmp_path, [
+        {"generic_name": "paracetamol", "strength": "500mg", "mrp": "18.50"},
+        {"generic_name": "cetirizine",  "strength": "10mg",  "mrp": "25.00"},
+    ])
     client = MergeFakeSupabaseClient(medicines=medicines)
     loader = make_merge_loader(client, tmp_path)
 
-    mrp_df = pd.DataFrame([
-        {"generic_name": "Paracetamol", "strength": "500mg", "mrp": 18.50}
-    ])
+    stats = loader.merge_jan_aushadhi_price(nppa_csv=nppa_csv)
 
-    stats = loader.merge_commercial_mrp(mrp_df, page_size=1000)
-
-    assert stats["checked"] == 10
-    assert stats["updated"] == 10
+    assert stats["updated"] == 2
     assert stats["skipped"] == 0
     assert stats["failed"] == 0
-    assert all(m["mrp"] == 18.50 for m in medicines)
+    assert medicines[0]["jan_aushadhi_price"] == 18.50
+    assert medicines[1]["jan_aushadhi_price"] == 25.00
 
 
-def test_merge_does_not_match_iron_against_spironolactone(tmp_path):
+def test_ja_backfill_does_not_match_iron_against_spironolactone(tmp_path):
+    """Exact-match must prevent 'iron' substring matching 'spironolactone'."""
     medicines = [
-        {"id": "med-1", "generic_name": "Spironolactone", "strength": "25mg", "mrp": None},
-        {"id": "med-2", "generic_name": "Iron", "strength": "100mg", "mrp": None},
+        {"id": "m1", "generic_name": "Spironolactone", "strength": "25mg",
+         "source": "commercial", "jan_aushadhi_price": None},
+        {"id": "m2", "generic_name": "Iron", "strength": "100mg",
+         "source": "commercial", "jan_aushadhi_price": None},
     ]
-
+    nppa_csv = _write_nppa_csv(tmp_path, [
+        {"generic_name": "iron", "strength": "100mg", "mrp": "32.00"},
+    ])
     client = MergeFakeSupabaseClient(medicines=medicines)
     loader = make_merge_loader(client, tmp_path)
 
-    mrp_df = pd.DataFrame([
-        {"generic_name": "Iron", "strength": "100mg", "mrp": 32.0}
-    ])
+    stats = loader.merge_jan_aushadhi_price(nppa_csv=nppa_csv)
 
-    stats = loader.merge_commercial_mrp(mrp_df, page_size=1000)
-
-    spiro = next(m for m in medicines if m["id"] == "med-1")
-    iron = next(m for m in medicines if m["id"] == "med-2")
-
-    assert spiro["mrp"] is None
-    assert iron["mrp"] == 32.0
+    spiro = next(m for m in medicines if m["id"] == "m1")
+    iron = next(m for m in medicines if m["id"] == "m2")
+    assert spiro["jan_aushadhi_price"] is None   # NOT updated
+    assert iron["jan_aushadhi_price"] == 32.00   # correctly updated
     assert stats["updated"] == 1
     assert stats["skipped"] == 1
 
 
-def test_merge_assigns_strength_specific_mrp(tmp_path):
+def test_ja_backfill_uses_strength_specific_price(tmp_path):
+    """Strength-specific rows override the generic fallback."""
     medicines = [
-        {"id": "para-500", "generic_name": "Paracetamol", "strength": "500mg", "mrp": None},
-        {"id": "para-650", "generic_name": "Paracetamol", "strength": "650mg", "mrp": None},
+        {"id": "para-500", "generic_name": "Paracetamol", "strength": "500mg",
+         "source": "commercial", "jan_aushadhi_price": None},
+        {"id": "para-650", "generic_name": "Paracetamol", "strength": "650mg",
+         "source": "commercial", "jan_aushadhi_price": None},
     ]
-
+    nppa_csv = _write_nppa_csv(tmp_path, [
+        {"generic_name": "paracetamol", "strength": "500mg", "mrp": "18.50"},
+        {"generic_name": "paracetamol", "strength": "650mg", "mrp": "22.00"},
+    ])
     client = MergeFakeSupabaseClient(medicines=medicines)
     loader = make_merge_loader(client, tmp_path)
 
-    mrp_df = pd.DataFrame([
-        {"generic_name": "Paracetamol", "strength": "500mg", "mrp": 18.50},
-        {"generic_name": "Paracetamol", "strength": "650mg", "mrp": 22.00},
-    ])
+    stats = loader.merge_jan_aushadhi_price(nppa_csv=nppa_csv)
 
-    stats = loader.merge_commercial_mrp(mrp_df, page_size=1000)
-
-    assert next(m["mrp"] for m in medicines if m["id"] == "para-500") == 18.50
-    assert next(m["mrp"] for m in medicines if m["id"] == "para-650") == 22.00
+    assert next(m["jan_aushadhi_price"] for m in medicines if m["id"] == "para-500") == 18.50
+    assert next(m["jan_aushadhi_price"] for m in medicines if m["id"] == "para-650") == 22.00
     assert stats["updated"] == 2
+
+
+def test_ja_backfill_uses_fallback_when_no_strength_match(tmp_path):
+    """If no strength-specific row exists, use the strength-less fallback."""
+    medicines = [
+        {"id": "m1", "generic_name": "Amoxicillin", "strength": "875mg",
+         "source": "commercial", "jan_aushadhi_price": None},
+    ]
+    # CSV only has 500mg specific — the None-key fallback should be used
+    nppa_csv = _write_nppa_csv(tmp_path, [
+        {"generic_name": "amoxicillin", "strength": "500mg", "mrp": "85.00"},
+    ])
+    client = MergeFakeSupabaseClient(medicines=medicines)
+    loader = make_merge_loader(client, tmp_path)
+
+    stats = loader.merge_jan_aushadhi_price(nppa_csv=nppa_csv)
+
+    assert medicines[0]["jan_aushadhi_price"] == 85.00
+    assert stats["updated"] == 1
+
+
+def test_ja_backfill_returns_zeros_when_csv_missing(tmp_path):
+    """Graceful failure when NPPA CSV file does not exist."""
+    client = MergeFakeSupabaseClient(medicines=[])
+    loader = make_merge_loader(client, tmp_path)
+    missing_path = tmp_path / "does_not_exist.csv"
+
+    stats = loader.merge_jan_aushadhi_price(nppa_csv=missing_path)
+
+    assert stats == {"checked": 0, "updated": 0, "skipped": 0, "failed": 0}
+

@@ -112,7 +112,10 @@ class SupabaseLoader:
             return
 
         if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-            raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+            raise ValueError(
+                "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.\n"
+                "Copy .env.example to .env and fill in your Supabase credentials."
+            )
 
         self.client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
         logger.info(f"[Loader] Connected to Supabase: {SUPABASE_URL[:40]}...")
@@ -162,6 +165,7 @@ class SupabaseLoader:
 
     def retry_failed_rows(self, table: str = "medicines") -> dict:
         """Re-process rows previously captured in the etl_failed_rows table."""
+        # Supabase PostgREST default page size is 1000. Paginate to collect all rows.
         retry_rows: list[dict] = []
         page_size = 1000
         offset = 0
@@ -406,65 +410,102 @@ class SupabaseLoader:
     def _utc_now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    # ── Commercial MRP merge ─────────────────────────────────────────────────
 
-    def merge_commercial_mrp(
+    # ── Jan Aushadhi price backfill ──────────────────────────────────────────
+
+    def merge_jan_aushadhi_price(
         self,
-        mrp_df: "pd.DataFrame",
+        nppa_csv: "Path | None" = None,
         table: str = "medicines",
         page_size: int = 1000,
     ) -> dict:
         """
-        Back-fills ``mrp`` on rows in *table* where mrp IS NULL by matching
-        against the commercial MRP dataset produced by CommercialMRPScraper.
+        Back-fills ``jan_aushadhi_price`` on commercial medicine rows in *table*
+        where it IS NULL by matching against the NPPA ceiling price CSV.
+
+        WHY THIS EXISTS
+        ---------------
+        SahiDawa's core value proposition is showing users the Jan Aushadhi
+        (generic) alternative price alongside a branded commercial medicine.
+        After a full ETL run, only ~0.5% of commercial medicines have
+        ``jan_aushadhi_price`` populated (linked via run_all.py Step 2b).
+        The remaining 99.5% show nothing — breaking the price comparison feature.
+
+        This method fills that gap using the NPPA ceiling prices CSV
+        (data/seeds/nppa_ceiling_prices.csv) as the Jan Aushadhi reference.
+        NPPA ceiling prices are government-fixed maximum retail prices for
+        generic drugs, which correspond directly to Jan Aushadhi store prices.
 
         Matching strategy
         -----------------
-        Records are matched on **both** ``generic_name`` (exact, case-insensitive)
-        **and** ``strength`` (exact, case-insensitive) simultaneously.
+        Priority 1: exact (generic_name, strength) match — most specific
+        Priority 2: exact (generic_name, None)     match — strength-less fallback
+
+        Only commercial rows (source = 'commercial') with jan_aushadhi_price IS
+        NULL are touched. janaushadhi-source rows already have correct prices.
 
         Parameters
         ----------
-        mrp_df:
-            DataFrame produced by CommercialMRPScraper — must contain at
-            least ``generic_name``, ``strength``, and ``mrp`` columns.
+        nppa_csv:
+            Path to NPPA ceiling price CSV. Defaults to
+            data/seeds/nppa_ceiling_prices.csv relative to this file.
         table:
             Target Supabase table (default ``"medicines"``).
         page_size:
-            Rows fetched per page when scanning for null-mrp records.
+            Rows fetched per page during cursor scan.
 
         Returns
         -------
         dict with keys: ``checked``, ``updated``, ``skipped``, ``failed``.
         """
-        if mrp_df.empty:
-            logger.warning("[Loader] merge_commercial_mrp: mrp_df is empty — nothing to merge.")
+        import csv as _csv
+
+        _default_csv = Path(__file__).resolve().parents[4] / "data" / "seeds" / "nppa_ceiling_prices.csv"
+        csv_path = Path(nppa_csv) if nppa_csv else _default_csv
+
+        if not csv_path.exists():
+            logger.error(
+                f"[Loader] merge_jan_aushadhi_price: NPPA CSV not found at {csv_path}. "
+                "Run: cp data/seeds/nppa_ceiling_price.csv data/seeds/nppa_ceiling_prices.csv"
+            )
             return {"checked": 0, "updated": 0, "skipped": 0, "failed": 0}
 
-        # Build a lookup: (generic_name_lower, strength_lower_or_none) → mrp
-        mrp_lookup: dict[tuple[str, str | None], float] = {}
-        for _, row in mrp_df.iterrows():
-            name = str(row.get("generic_name") or "").strip().lower()
-            strength_raw = row.get("strength")
-            strength = str(strength_raw).strip().lower() if strength_raw and not pd.isna(strength_raw) else None
-            mrp = row.get("mrp")
-            if name and mrp is not None and not pd.isna(mrp):
-                key = (name, strength)
-                mrp_lookup.setdefault(key, float(mrp))
-                fallback_key = (name, None)
-                mrp_lookup.setdefault(fallback_key, float(mrp))
+        # Build lookup: (generic_name_lower, strength_lower_or_None) → ja_price
+        # setdefault keeps the FIRST (most specific) entry for each key, so
+        # strength-specific rows added before the None-strength fallback row win.
+        ja_lookup: dict[tuple[str, str | None], float] = {}
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            for row in _csv.DictReader(f):
+                name = str(row.get("generic_name") or "").strip().lower()
+                strength_raw = str(row.get("strength") or "").strip().lower() or None
+                try:
+                    price = float(row.get("mrp") or 0)
+                except ValueError:
+                    continue
+                if name and price > 0:
+                    ja_lookup.setdefault((name, strength_raw), price)
+                    ja_lookup.setdefault((name, None), price)  # fallback key
+
+        if not ja_lookup:
+            logger.warning("[Loader] merge_jan_aushadhi_price: NPPA CSV loaded but produced no entries.")
+            return {"checked": 0, "updated": 0, "skipped": 0, "failed": 0}
+
+        logger.info(
+            f"[Loader] merge_jan_aushadhi_price: loaded {len(ja_lookup)} lookup entries "
+            f"from {csv_path.name}"
+        )
 
         checked = updated = skipped = failed = 0
 
-        # Cursor-based pagination — progress forward by ID regardless of
-        # whether a row gets updated or skipped. This prevents infinite loops
-        # when skipped rows keep mrp=null and would be re-fetched at offset 0.
+        # Cursor-based pagination — advances by ID so skipped rows (still NULL)
+        # are never re-fetched in an infinite loop.
         last_id = None
         while True:
             query = (
                 self.client.table(table)
                 .select("id, generic_name, strength")
-                .is_("mrp", "null")
+                .eq("source", "commercial")
+                .is_("jan_aushadhi_price", "null")
                 .order("id")
                 .range(0, page_size - 1)
             )
@@ -486,21 +527,24 @@ class SupabaseLoader:
                     if strength_raw else None
                 )
 
-                # Exact match: prefer (name, strength) then (name, None)
-                mrp = mrp_lookup.get((name_lower, strength_lower))
-                if mrp is None:
-                    mrp = mrp_lookup.get((name_lower, None))
+                # Prefer (name, strength) then fall back to (name, None)
+                ja_price = ja_lookup.get((name_lower, strength_lower))
+                if ja_price is None:
+                    ja_price = ja_lookup.get((name_lower, None))
 
-                if mrp is None:
+                if ja_price is None:
                     skipped += 1
                     continue
 
                 try:
-                    self.client.table(table).update({"mrp": mrp}).eq("id", record_id).execute()
+                    self.client.table(table).update(
+                        {"jan_aushadhi_price": ja_price}
+                    ).eq("id", record_id).execute()
                     updated += 1
                 except Exception as e:
                     logger.warning(
-                        f"[Loader] merge_commercial_mrp: failed to update id={record_id}: {e}"
+                        f"[Loader] merge_jan_aushadhi_price: failed to update "
+                        f"id={record_id}: {e}"
                     )
                     failed += 1
 
@@ -509,7 +553,7 @@ class SupabaseLoader:
                 break
 
         logger.info(
-            f"[Loader] merge_commercial_mrp — checked: {checked}, updated: {updated}, "
-            f"skipped: {skipped}, failed: {failed}"
+            f"[Loader] merge_jan_aushadhi_price — checked: {checked}, "
+            f"updated: {updated}, skipped: {skipped}, failed: {failed}"
         )
         return {"checked": checked, "updated": updated, "skipped": skipped, "failed": failed}
