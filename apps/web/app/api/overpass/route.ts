@@ -11,9 +11,12 @@ const OVERPASS_MIRRORS = [
 export async function POST(req: NextRequest) {
     const { query } = await req.json();
 
-    for (const mirror of OVERPASS_MIRRORS) {
+    // Try at most the first 3 mirrors with a 3-second timeout each
+    // to ensure we complete within Vercel's 10-second serverless execution limit.
+    const serverMirrors = OVERPASS_MIRRORS.slice(0, 3);
+    for (const mirror of serverMirrors) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 seconds timeout per mirror
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout per mirror
 
         try {
             const response = await fetch(mirror, {

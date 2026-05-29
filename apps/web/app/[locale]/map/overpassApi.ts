@@ -14,9 +14,11 @@ const OVERPASS_MIRRORS = [
 
 async function queryOverpass(query: string): Promise<any> {
     // 1. Primary Path: Direct client-side GET requests (bypasses Vercel timeouts and shared IP rate-limiting)
-    for (const mirror of OVERPASS_MIRRORS) {
+    // Try at most the first 2 mirrors client-side with a shorter timeout to avoid long sequential delays
+    const clientMirrors = OVERPASS_MIRRORS.slice(0, 2);
+    for (const mirror of clientMirrors) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout per mirror
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout per mirror
 
         try {
             const url = `${mirror}?data=${encodeURIComponent(query)}`;
