@@ -14,6 +14,7 @@ interface PageHeaderProps {
     variant?: "dark" | "light";
     showLanguage?: boolean;
     languageName?: string;
+    showThemeToggle?: boolean;
     children?: React.ReactNode;
 }
 
@@ -24,6 +25,7 @@ export const PageHeader = ({
     variant = "dark",
     showLanguage = false,
     languageName,
+    showThemeToggle = true,
     children,
 }: PageHeaderProps) => {
     const isDark = variant === "dark";
@@ -69,21 +71,6 @@ export const PageHeader = ({
 
                 {/* RIGHT ACTIONS BLOCK (Features & Utilities) */}
                 <div className="flex shrink-0 items-center justify-end gap-2">
-                    
-                    {/* NEW VACCINE HUB LINK COMPONENT */}
-                    {/* <Link
-                        href="/vaccine-hub"
-                        aria-label="Navigate to Immunization Vaccine Hub"
-                        className={`flex h-10 px-3 items-center justify-center gap-1.5 rounded-full font-semibold text-xs transition-all ${pageHeaderFocusRingClass} ${
-                            isDark 
-                                ? "bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/40" 
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
-                        }`}
-                    >
-                        <Syringe size={16} aria-hidden="true" />
-                        <span className="hidden sm:inline">Vaccine Hub</span>
-                    </Link> */}
-
                     {/* STATUS OR QUICK ACTIONS CONTAINER */}
                     <ThemeToggle />
                   
