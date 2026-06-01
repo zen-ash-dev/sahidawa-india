@@ -8,7 +8,7 @@ import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 const intlMiddleware = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
-  const res = intlMiddleware(req);
+  let res = intlMiddleware(req);
   
   const supabase = createServerClient(
     getSupabaseUrl(),
@@ -29,7 +29,7 @@ export default async function middleware(req: NextRequest) {
   );
   
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   const { pathname } = req.nextUrl;
   
   if (/^\/[a-z]{2}\/admin\//.test(pathname) || /^\/[a-z]{2}\/admin$/.test(pathname)) {
@@ -38,7 +38,7 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
     }
   }
-  
+
   return res;
 }
 
