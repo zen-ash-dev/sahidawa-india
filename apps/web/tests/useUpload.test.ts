@@ -80,6 +80,7 @@ describe("useUpload", () => {
     let root: Root;
     let container: HTMLDivElement;
     const originalXHR = global.XMLHttpRequest;
+    const originalWindowXHR = typeof window !== 'undefined' ? window.XMLHttpRequest : undefined;
 
     beforeAll(() => {
         (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -87,7 +88,13 @@ describe("useUpload", () => {
 
     beforeEach(() => {
         MockXHR.instances = [];
-        global.XMLHttpRequest = MockXHR as unknown as typeof XMLHttpRequest;
+        const mock = MockXHR as unknown as typeof XMLHttpRequest;
+        global.XMLHttpRequest = mock;
+        if (typeof window !== 'undefined') {
+            window.XMLHttpRequest = mock;
+        }
+        globalThis.XMLHttpRequest = mock;
+
         container = document.createElement("div");
         document.body.appendChild(container);
         root = createRoot(container);
@@ -99,6 +106,10 @@ describe("useUpload", () => {
         });
         container.remove();
         global.XMLHttpRequest = originalXHR;
+        if (typeof window !== 'undefined' && originalWindowXHR) {
+            window.XMLHttpRequest = originalWindowXHR;
+        }
+        globalThis.XMLHttpRequest = originalXHR;
     });
 
     async function mountHarness(onUploadComplete = jest.fn()) {
