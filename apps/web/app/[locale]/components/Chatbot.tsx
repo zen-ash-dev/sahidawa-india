@@ -144,12 +144,20 @@ export default function Chatbot() {
                 </div>
             )}
 
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="relative z-50 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-[0_8px_20px_rgba(22,163,74,0.3)] transition-all hover:scale-105 hover:shadow-[0_8px_25px_rgba(22,163,74,0.4)] active:scale-95 dark:bg-green-700 dark:hover:bg-green-800"
-            >
-                {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
-            </button>
+            <div className="group relative flex items-center">
+                {!isOpen && (
+                    <div className="absolute right-16 rounded-lg bg-slate-900 px-3 py-2 text-sm whitespace-nowrap text-white opacity-0 transition-all duration-300 group-hover:opacity-100">
+                        AI Health Assistant
+                    </div>
+                )}
+
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="relative z-50 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-[0_8px_20px_rgba(22,163,74,0.3)] transition-all hover:scale-105 hover:shadow-[0_8px_25px_rgba(22,163,74,0.4)] active:scale-95 dark:bg-green-700 dark:hover:bg-green-800"
+                >
+                    {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
+                </button>
+            </div>
         </div>
     );
 }
