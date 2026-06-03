@@ -67,7 +67,10 @@ const registerPharmacySchema = z.object({
     address: z.string().min(5),
     district: z.string().min(2),
     state: z.string().min(2),
-    phone_number: z.string().regex(/^\+?[\d\s\-()]{7,15}$/).optional(),
+    phone_number: z
+        .string()
+        .regex(/^\+?[\d\s\-()]{7,15}$/)
+        .optional(),
     lat: z.number().min(-90).max(90).optional(),
     lng: z.number().min(-180).max(180).optional(),
 });
@@ -106,7 +109,9 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         }
 
         if (existing) {
-            res.status(409).json({ error: "A pharmacy with this license ID is already registered" });
+            res.status(409).json({
+                error: "A pharmacy with this license ID is already registered",
+            });
             return;
         }
 
@@ -119,8 +124,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
                 district: data.district,
                 state: data.state,
                 phone_number: data.phone_number ?? null,
-                lat: data.lat ?? null,
-                lng: data.lng ?? null,
+                location: data.lng && data.lat ? `POINT(${data.lng} ${data.lat})` : null,
                 is_verified: false,
             })
             .select()
