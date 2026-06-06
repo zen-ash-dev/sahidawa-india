@@ -383,14 +383,20 @@ def send_to_make_webhook(post_text: str, pr: dict) -> None:
     import urllib.parse
     
     # Generate a dynamic Thank You banner image URL
-    # Using sznm.dev OG generator to avoid Vercel's unremovable default logo and broken markdown parsing
-    heading = "GSSoC 2026 Star Contributor"
-    text = f"Huge thanks to {pr['author']} for scaling SahiDawa! 🚀"
+    # Using Microlink Cards API for a beautiful GitHub-style banner with the contributor's avatar
+    title = "GSSoC 2026 Star Contributor"
+    desc = f"Huge thanks to {pr['author']} for scaling SahiDawa! 🚀"
     
-    encoded_heading = urllib.parse.quote(heading)
-    encoded_text = urllib.parse.quote(text)
+    encoded_title = urllib.parse.quote(title)
+    encoded_desc = urllib.parse.quote(desc)
     
-    raw_image_url = f"https://og.sznm.dev/api/generate?heading={encoded_heading}&text={encoded_text}"
+    cards_url = f"https://cards.microlink.io/?preset=github&title={encoded_title}&description={encoded_desc}"
+    
+    if pr.get("author_avatar"):
+        clean_avatar = pr['author_avatar'].split('?')[0]
+        cards_url += f"&image={urllib.parse.quote(clean_avatar, safe='')}"
+        
+    raw_image_url = f"https://i.microlink.io/{urllib.parse.quote(cards_url, safe='')}"
         
     # Use TinyURL to bypass Make.com's strict/buggy URL validation and double-encoding
     try:
