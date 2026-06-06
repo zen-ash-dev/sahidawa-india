@@ -383,19 +383,23 @@ def send_to_make_webhook(post_text: str, pr: dict) -> None:
     import urllib.parse
     
     # Generate a dynamic Thank You banner image URL
-    # We do NOT urlencode the text here because Make.com/LinkedIn double-encodes it.
-    # We also remove the '#' character to prevent Make.com from treating it as a URL fragment and dropping the .png extension.
-    banner_text = f"Huge thanks to {pr['author']} for their contribution to SahiDawa! 🚀"
+    banner_text = f"**GSSoC 2026 Star Contributor** <br/><br/> Huge thanks to **{pr['author']}** for scaling **SahiDawa**! 🚀"
     encoded_text = urllib.parse.quote(banner_text)
     
     raw_image_url = f"https://og-image.vercel.app/{encoded_text}.png?theme=dark&md=1&fontSize=75px"
+    
+    # Add RatLoopz/SahiDawa Logo
+    ratloopz_logo = "https://github.com/RatLoopz.png"
+    raw_image_url += f"&images={urllib.parse.quote(ratloopz_logo, safe='')}"
+    
+    # Add Author Avatar
     if pr.get("author_avatar"):
         clean_avatar = pr['author_avatar'].split('?')[0]
-        raw_image_url += f"&images={clean_avatar}"
+        raw_image_url += f"&images={urllib.parse.quote(clean_avatar, safe='')}"
         
     # Use TinyURL to bypass Make.com's strict/buggy URL validation and double-encoding
     try:
-        req = urllib.request.Request(f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(raw_image_url)}")
+        req = urllib.request.Request(f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(raw_image_url, safe='=&?/:')}")
         with urllib.request.urlopen(req) as response:
             image_url = response.read().decode('utf-8')
     except Exception as e:
