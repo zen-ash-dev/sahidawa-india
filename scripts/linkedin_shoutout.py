@@ -35,7 +35,7 @@ import requests
 PROJECT_NAME = "SahiDawa"
 PROJECT_TAGLINE = "India's open-source medicine safety platform for 1.4 billion people 🇮🇳"
 PROJECT_GITHUB_URL = "https://github.com/RatLoopz/sahidawa-india"
-PROJECT_HASHTAGS = "#SahiDawa #OpenSource #GSSoC2026 #BuildForIndia #HealthTech #IndiaStack"
+PROJECT_HASHTAGS = "#GSSoC2026 #OpenSource #girlscriptsummerofcode #RatLoopz #community #mentorship #leadership #developerJourney #collaboration #contributors #TechCommunity #GSSoC #GitHub #SahiDawa #BuildForIndia"
 
 LABEL_TIER_MAP = {
     "level:critical": ("⚡ Critical-Level", "mission-critical"),
