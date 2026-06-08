@@ -243,61 +243,57 @@ class CDSCOValidator:
             if best_score >= self.threshold:
                 return best_cand, best_score
 
-            # 2. Fuzzy match lookup using first-letter partition (fast path)
-            first_char = norm_product[0]
-            choices_data = self._first_letter_map.get(first_char, [])
+        # 2. Fuzzy match lookup using first-letter partition (fast path)
+        first_char = norm_product[0]
+        choices_data = self._first_letter_map.get(first_char, [])
 
-            product_match = None
+        product_match = None
 
-            if choices_data:
-                choices = [c["norm_p"] for c in choices_data]
-                product_match = process.extractOne(
-                    norm_product,
-                    choices,
-                    scorer=fuzz.token_sort_ratio
-                )
-
-            # 3. Fallback global search when partition lookup fails
-            if (
-                not product_match
-                or product_match[1] < self.threshold
-            ):
-                global_choices_data = []
-
-                for bucket in self._first_letter_map.values():
-                    global_choices_data.extend(bucket)
-
-                global_choices = [c["norm_p"] for c in global_choices_data]
-
-                product_match = process.extractOne(
-                    norm_product,
-                    global_choices,
-                    scorer=fuzz.token_sort_ratio
-                )
-
-                if not product_match:
-                    return None, 0.0
-
-                _, product_score, idx = product_match
-                cdsco_cand = global_choices_data[idx]
-
-            else:
-                _, product_score, idx = product_match
-                cdsco_cand = choices_data[idx]
-
-            manufacturer_score = fuzz.token_sort_ratio(
-                norm_manufacturer,
-                cdsco_cand["norm_m"]
+        if choices_data:
+            choices = [c["norm_p"] for c in choices_data]
+            product_match = process.extractOne(
+                norm_product,
+                choices,
+                scorer=fuzz.token_sort_ratio
             )
 
-            final_score = (
-                PRODUCT_WEIGHT * product_score
-                + MANUFACTURER_WEIGHT * manufacturer_score
+        # 3. Fallback global search when partition lookup fails
+        if (
+            not product_match
+            or product_match[1] < self.threshold
+        ):
+            global_choices = [c["norm_p"] for c in self._all_choices_data]
+
+            product_match = process.extractOne(
+                norm_product,
+                global_choices,
+                scorer=fuzz.token_sort_ratio
             )
 
-            return {
-                "matched_product": cdsco_cand["brand_name"],
-                "matched_manufacturer": cdsco_cand["firm_name"],
-                "product_score": round(product_score, 2),
-                "manufacturer_score": round(manufacturer_score, 2),
-            }, final_score
+            if not product_match:
+                return None, 0.0
+
+            _, product_score, idx = product_match
+            cdsco_cand = self._all_choices_data[idx]
+
+        else:
+            _, product_score, idx = product_match
+            cdsco_cand = choices_data[idx]
+
+        manufacturer_score = fuzz.token_sort_ratio(
+            norm_manufacturer,
+            cdsco_cand["norm_m"]
+        )
+
+        final_score = (
+            PRODUCT_WEIGHT * product_score
+            + MANUFACTURER_WEIGHT * manufacturer_score
+        )
+
+        return {
+            "matched_product": cdsco_cand["brand_name"],
+            "matched_manufacturer": cdsco_cand["firm_name"],
+            "product_score": round(product_score, 2),
+            "manufacturer_score": round(manufacturer_score, 2),
+        }, final_score
+
