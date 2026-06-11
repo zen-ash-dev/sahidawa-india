@@ -242,6 +242,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
             setIsOpen(false);
             setActiveIndex(-1);
             if (onSearchChange) onSearchChange(value); // Sync query to safety panel
+
         },
         [onSearchChange]
     );
@@ -254,6 +255,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
             setIsOpen(false);
             setActiveIndex(-1);
             if (onSearchChange) onSearchChange(trimmed); // Sync query to safety panel
+
         },
         [onSearchChange]
     );
