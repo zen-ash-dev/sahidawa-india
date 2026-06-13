@@ -667,7 +667,7 @@
             },
             "pharmacies": {
                 "title": "ফাৰ্মাচী বিচাৰি উলিয়াওক",
-                "description": "জন ঔষধি কেন্দ্ৰ আৰু আচল ঔষধ উপলব্ধ থকা আপোনাৰ ওচৰৰ প্ৰমাণিত ফাৰ্মাচীসমূহৰ সন্ধান কৰক।Locate Jan Aushadhi stores and verified nearby pharmacies stocking real medicines."
+                "description": "জন ঔষধি কেন্দ্ৰ আৰু আচল ঔষধ উপলব্ধ থকা আপোনাৰ ওচৰৰ প্ৰমাণিত ফাৰ্মাচীসমূহৰ সন্ধান কৰক।"
             },
             "protect": {
                 "title": "সুৰক্ষিত হৈ থাকক",
@@ -680,7 +680,7 @@
             "cards": {
                 "verifyMedicines": {
                     "title": "ঔষধ পৰীক্ষা কৰা",
-                    "description": "Instantly verify medicine authenticity using barcode, batch number, or medicine details."
+                    "description": "বাৰক'ড, বেচ নম্বৰ, বা ঔষধৰ বিৱৰণ ব্যৱহাৰ কৰি ঔষধৰ সত্যতা তৎক্ষণাত পৰীক্ষা কৰক।"
                 },
                 "scanOrSearch": {
                     "title": "স্কেন বা সন্ধান কৰক",
