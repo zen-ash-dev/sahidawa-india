@@ -8,6 +8,7 @@ out
 dist
 build
 *.log
+.turbo
 
 # ── Version control & metadata ──
 .git
