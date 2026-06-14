@@ -365,17 +365,17 @@ SahiDawa aims to support all 22 Indian scheduled languages. (We are just getting
 | Tamil (தமிழ்)      | 🚧 In Progress | —           |
 | Telugu (తెలుగు)    | ✅ Complete    | GSSoC 2026  |
 | Kannada (ಕನ್ನಡ)    | ✅ Complete    | GSSoC 2026  |
-| Malayalam (മലയാളം) | 🔜 Open        | —           |
+| Malayalam (മലയാളം) | 🚧 In Progress | —           |
 | Bengali (বাংলা)    | 🚧 In Progress | —           |
 | Gujarati (ગુજરાતી) | 🚧 In Progress | —           |
 | Marathi (मराठी)    | 🚧 In Progress | —           |
 | Punjabi (ਪੰਜਾਬੀ)   | 🚧 In Progress | —           |
 | Odia (ଓଡ଼ିଆ)       | 🚧 In Progress | —           |
-| Assamese (অসমীয়া) | 🔜 Open        | —           |
+| Assamese (অসমীয়া) | 🚧 In Progress | —           |
 | Urdu (اردو)        | 🚧 In Progress | —           |
 | Sanskrit (संस्कृत) | 🚧 In Progress | —           |
-| Maithili           | 🔜 Open        | —           |
-| Kashmiri           | 🔜 Open        | —           |
+| Maithili           | 🚧 In Progress | —           |
+| Kashmiri           | 🚧 In Progress | —           |
 | Konkani            | 🔜 Open        | —           |
 | Sindhi             | 🔜 Open        | —           |
 | Dogri              | 🔜 Open        | —           |
