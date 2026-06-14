@@ -111,7 +111,7 @@
         "review_message": "The microphone picked up your symptoms with low confidence. You can retry for a clearer result or analyse this transcript anyway.",
         "retry_button": "Try Again",
         "switch_to_text_button": "Type Instead",
-        "analyse_anyway_button": "Analyse Anyway",
+        "analyse_anyway_button": "Analyze Anyway",
         "result_heading": "AI Analysis",
         "result_subheading": "Medical Triage",
         "transcript_label": "Your Transcript",
