@@ -56,7 +56,6 @@ class MultiTierLockManager:
         self.l2_capacity = l2_capacity
         
         # L1 Memory Lock (LFU implementation)
-        self.l1_lock: Dict[str, LFUNode] = {}
         self.freq_map: Dict[int, LFUDoublyLinkedList] = {}
         self.min_freq = 0
         self.l1_lock = threading.RLock()
