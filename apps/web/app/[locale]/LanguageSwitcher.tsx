@@ -19,6 +19,11 @@ const languages = [
     { code: "kn", label: "Kannada", native: "ಕನ್ನಡ" },
     { code: "pa", label: "Punjabi", native: "ਪੰਜਾਬੀ" },
     { code: "as", label: "Assamese", native: "অসমীয়া" },
+    { code: "kok", label: "Konkani", native: "कोंकणी" },
+    { code: "ks", label: "Kashmiri", native: "कॉशुर" },
+    { code: "mai", label: "Maithili", native: "मैथिली" },
+    { code: "ml", label: "Malayalam", native: "മലയാളം" },
+    { code: "sa", label: "Sanskrit", native: "संस्कृतम्" },
 ];
 
 export default function LanguageSwitcher() {
