@@ -32,8 +32,14 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
 // Execute configuration validation after import completes
 validateMlServiceConfig();
 
-if (process.env.NODE_ENV !== "development" && !process.env.CSRF_SECRET) {
-    logger.error("Missing CSRF_SECRET environment variable. The default fallback is predictable and insecure.");
+if (
+    process.env.NODE_ENV !== "development" &&
+    process.env.NODE_ENV !== "test" &&
+    !process.env.CSRF_SECRET
+) {
+    logger.error(
+        "Missing CSRF_SECRET environment variable. The default fallback is predictable and insecure."
+    );
     process.exit(1);
 }
 
@@ -64,6 +70,7 @@ const app: Express = express();
 app.set("trust proxy", 1); // Trust first proxy (Nginx) — fixes req.ip for rate limiters
 
 app.use(compression());
+app.use(cors(createCorsOptions()));
 
 // ── Global Middleware Configuration ───────────────────────────────────────
 app.use(cookieParser());
@@ -82,15 +89,15 @@ const {
         process.env.NODE_ENV === "production" ? "__Host-psifi.x-csrf-token" : "psifi.x-csrf-token",
     cookieOptions: {
         httpOnly: true,
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
         secure: process.env.NODE_ENV === "production",
         path: "/",
     },
     size: 64,
 });
 
-// Skip CSRF in test environment so supertest can run without mock cookies
-if (process.env.NODE_ENV !== "test") {
+// Skip CSRF in test and development environments to support cross-port local testing
+if (process.env.NODE_ENV !== "test" && process.env.NODE_ENV !== "development") {
     app.use(doubleCsrfProtection);
 }
 
@@ -205,6 +212,7 @@ app.use("/api/verify/batch", batchRouter);
 app.use("/api/verify", verifyRouter);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/v1/notifications", notificationsRouter);
 app.use("/api/v1/scan", scanRouter);
 app.use("/api/v1/lasa", lasaRouter);
 app.use("/api/v1/alerts", alertsRouter);

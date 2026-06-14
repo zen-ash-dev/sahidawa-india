@@ -6,7 +6,7 @@ export const API_BASE = configuredApiUrl.replace(/\/+$/, "");
 
 let csrfTokenCache: string | null = null;
 
-async function getCsrfToken(): Promise<string> {
+export async function getCsrfToken(): Promise<string> {
     if (csrfTokenCache) return csrfTokenCache;
     const res = await fetch(`${API_BASE}/api/csrf-token`, {
         credentials: "include",
@@ -139,7 +139,9 @@ export async function geocodePincode(
         return { latitude: lat, longitude: lng };
     } catch (error) {
         if (typeof window !== "undefined") {
-            console.warn(`[api] Geocoding pincode ${pincode} failed: ${error instanceof Error ? error.message : String(error)}`);
+            console.warn(
+                `[api] Geocoding pincode ${pincode} failed: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
         return null;
     }
@@ -163,8 +165,18 @@ export type ScanMeta = {
 };
 
 export type VerifyResult =
-    | { verified: true; medicine: VerifiedMedicine; scanMeta?: ScanMeta }
-    | { verified: false; message: string; scanMeta?: ScanMeta };
+    | {
+          verified: true;
+          medicine: VerifiedMedicine;
+          scanMeta?: ScanMeta;
+          batch_status?: "safe" | "recalled" | "unknown";
+      }
+    | {
+          verified: false;
+          message: string;
+          scanMeta?: ScanMeta;
+          batch_status?: "safe" | "recalled" | "unknown";
+      };
 
 export type VerifiedPharmacy = {
     name: string;
