@@ -309,16 +309,19 @@ export default function Navbar() {
                                                 href="/alerts"
                                                 onClick={() => setIsMenuOpen(false)}
                                                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors ${
-                                                    isActive("/how-it-works")
+                                                    isActive("/alerts")
                                                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                                                         : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                                                 }`}
-                                            ></Link>
+                                            >
+                                                <Bell size={14} />
+                                                {tNav("alerts")}
+                                            </Link>
                                             <Link
                                                 href="/map"
                                                 onClick={() => setIsMenuOpen(false)}
                                                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors ${
-                                                    isActive("/how-it-works")
+                                                    isActive("/map")
                                                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                                                         : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                                                 }`}
@@ -330,7 +333,7 @@ export default function Navbar() {
                                                 href="/scheme-eligibility"
                                                 onClick={() => setIsMenuOpen(false)}
                                                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors ${
-                                                    isActive("/how-it-works")
+                                                    isActive("/scheme-eligibility")
                                                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                                                         : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                                                 }`}
@@ -342,7 +345,7 @@ export default function Navbar() {
                                                 href="/reports/me"
                                                 onClick={() => setIsMenuOpen(false)}
                                                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors ${
-                                                    isActive("/how-it-works")
+                                                    isActive("/reports/me")
                                                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                                                         : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                                                 }`}
@@ -353,7 +356,7 @@ export default function Navbar() {
                                                 href="/schedule"
                                                 onClick={() => setIsMenuOpen(false)}
                                                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold transition-colors ${
-                                                    isActive("/how-it-works")
+                                                    isActive("/schedule")
                                                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                                                         : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                                                 }`}
